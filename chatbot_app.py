@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 import joblib
 import pandas as pd
+import os
 
 # Initialize Flask App
 app = Flask(__name__)
@@ -80,4 +81,5 @@ def predict():
     return jsonify({'emotion': prediction, 'response': response, 'emoji': emoji})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.getenv('PORT', 8080))  # Use environment variable or default to 8080
+    app.run(host='0.0.0.0', port=port, debug=True)
