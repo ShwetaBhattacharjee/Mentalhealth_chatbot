@@ -5,11 +5,19 @@ import pandas as pd
 # Initialize Flask App
 app = Flask(__name__)
 
-# Load the SVM model
-model = joblib.load("svm_model.pkl")  # Ensure this is the correct path to your model
+# Load the SVM model - make sure the model is trained and saved with the correct scikit-learn version
+try:
+    model = joblib.load("svm_model.pkl")  # Ensure this is the correct path to your model
+except FileNotFoundError:
+    model = None
+    print("Error: Model file not found. Please ensure 'svm_model.pkl' exists in the correct path.")
 
 # Load datasets with specified encoding to handle Unicode errors
-faq_df = pd.read_csv("Merged_Conversation.csv", encoding='ISO-8859-1')  # Use the encoding that works for your data
+try:
+    faq_df = pd.read_csv("Merged_Conversation.csv", encoding='ISO-8859-1')  # Use the encoding that works for your data
+except FileNotFoundError:
+    faq_df = pd.DataFrame(columns=['Questions', 'Answers'])  # Fallback to empty DataFrame if file not found
+    print("Error: FAQ file not found. Please ensure 'Merged_Conversation.csv' exists in the correct path.")
 
 # Knowledge Base for Emotion Responses
 emotions_emoji_dict = {
@@ -52,31 +60,34 @@ def index():
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    if model is None:
+        return jsonify({'error': 'Model is not loaded. Please ensure the model file is available.'}), 500
+
     data = request.json
-    text = data['text']
-    
+    text = data.get('text', '')
+
     # Handle greetings separately
     greeting_response = handle_greetings(text)
     if greeting_response:
         return jsonify({'emotion': 'neutral', 'response': greeting_response, 'emoji': '😊'})
-    
+
     # Handle FAQs
     faq_response = handle_faqs(text)
     if faq_response:
         return jsonify({'emotion': 'neutral', 'response': faq_response, 'emoji': '🤔'})
-    
+
     # Predict emotion and generate response
     prediction = model.predict([text])[0]
-    
+
     # Handle sensitive topics
+    knowledge_base = build_knowledge_base()
     if 'suicidal' in text.lower():
-        response = build_knowledge_base().get('suicidal')
+        response = knowledge_base.get('suicidal')
         emoji = '😔'  # Use a neutral or empathetic emoji for sensitive topics
     else:
-        knowledge_base = build_knowledge_base()
-        response = knowledge_base.get(prediction, build_knowledge_base()['default'])
+        response = knowledge_base.get(prediction, knowledge_base['default'])
         emoji = emotions_emoji_dict.get(prediction, "😊")  # Default to smiling emoji if no match
-    
+
     return jsonify({'emotion': prediction, 'response': response, 'emoji': emoji})
 
 if __name__ == '__main__':
