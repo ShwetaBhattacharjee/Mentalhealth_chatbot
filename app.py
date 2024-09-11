@@ -64,7 +64,10 @@ def predict():
         return jsonify({'error': 'Model is not loaded. Please ensure the model file is available.'}), 500
 
     data = request.json
-    text = data.get('text', '')
+    if not data or 'text' not in data:
+        return jsonify({'error': 'Invalid input. Please provide text data.'}), 400
+
+    text = data['text']
 
     # Handle greetings separately
     greeting_response = handle_greetings(text)
@@ -77,7 +80,10 @@ def predict():
         return jsonify({'emotion': 'neutral', 'response': faq_response, 'emoji': '🤔'})
 
     # Predict emotion and generate response
-    prediction = model.predict([text])[0]
+    try:
+        prediction = model.predict([text])[0]
+    except Exception as e:
+        return jsonify({'error': f'Prediction error: {str(e)}'}), 500
 
     # Handle sensitive topics
     knowledge_base = build_knowledge_base()
