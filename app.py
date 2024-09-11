@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
 import joblib
 import pandas as pd
-import os
 
 # Initialize Flask App
 app = Flask(__name__)
@@ -10,7 +9,7 @@ app = Flask(__name__)
 model = joblib.load("svm_model.pkl")  # Ensure this is the correct path to your model
 
 # Load datasets with specified encoding to handle Unicode errors
-faq_df = pd.read_csv("Merged_Conversation.csv", encoding='ISO-8859-1')  # Adjust encoding as needed
+faq_df = pd.read_csv("Merged_Conversation.csv", encoding='ISO-8859-1')  # Use the encoding that works for your data
 
 # Knowledge Base for Emotion Responses
 emotions_emoji_dict = {
@@ -19,7 +18,6 @@ emotions_emoji_dict = {
     "shame": "😳", "surprise": "😮", "worry": "😟", "love": "❤️", "hate": "😡", "fun": "😄"
 }
 
-# Function to build the knowledge base for responses
 def build_knowledge_base():
     return {
         'joy': "It's wonderful to hear that you're feeling joyful! 😊 Sometimes sharing your happiness can make it even more special. If you want to talk more about what’s making you happy, I’m here to listen!",
@@ -35,14 +33,12 @@ def build_knowledge_base():
         'fun': "It sounds like you’re having fun! 😄 It's great to hear you’re enjoying yourself. If you want to share more about what’s making you happy, I’m here to chat!"
     }
 
-# Function to handle greetings
 def handle_greetings(text):
     greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening']
     if any(greeting in text.lower() for greeting in greetings):
         return "Hello! How can I assist you today? 😊"
     return None
 
-# Function to handle FAQs
 def handle_faqs(text):
     # Match FAQ questions in the merged dataset
     faq_match = faq_df[faq_df['Questions'].str.contains(text, case=False, na=False)]
@@ -50,16 +46,14 @@ def handle_faqs(text):
         return faq_match['Answers'].values[0]
     return None
 
-# Route to serve the index page
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
 
-# Route for predicting emotions
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.json
-    text = data.get('text', '')
+    text = data['text']
     
     # Handle greetings separately
     greeting_response = handle_greetings(text)
@@ -80,12 +74,10 @@ def predict():
         emoji = '😔'  # Use a neutral or empathetic emoji for sensitive topics
     else:
         knowledge_base = build_knowledge_base()
-        response = knowledge_base.get(prediction, knowledge_base['default'])
+        response = knowledge_base.get(prediction, build_knowledge_base()['default'])
         emoji = emotions_emoji_dict.get(prediction, "😊")  # Default to smiling emoji if no match
     
     return jsonify({'emotion': prediction, 'response': response, 'emoji': emoji})
 
-# Main function to run the app
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # Default to port 5000 if not specified
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(debug=True)
